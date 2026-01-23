@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 
 app = Flask(__name__)
 
-DB_NAME = "clientes_deepbacbo.db"
+DB_NAME = "licencas_v3.db"
 SENHA_ADMIN = "1234"  # <--- TROQUE ESSA SENHA PARA NINGUÉM ACESSAR SEU PAINEL
 
 # --- INICIALIZA O BANCO ---
@@ -153,4 +153,5 @@ def check_license():
         return jsonify({"valid": False, "message": "E-mail não encontrado."}), 403
 
 if __name__ == '__main__':
+
     app.run(host='0.0.0.0', port=5000)
