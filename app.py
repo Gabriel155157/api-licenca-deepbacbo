@@ -60,7 +60,7 @@ def salvar_no_github(email, dias):
     except Exception as e:
         print(f"❌ Erro GitHub Save: {e}")
 
-# --- FUNÇÃO 2: REMOVER DA NUVEM (NOVA!) ---
+# --- FUNÇÃO 2: REMOVER DA NUVEM ---
 def remover_do_github(email_para_deletar):
     if not GITHUB_TOKEN or not GITHUB_REPO: return
 
@@ -280,6 +280,19 @@ def delete_user():
 def check_license():
     data = request.json
     email = data.get('email', '').lower().strip()
+
+    # =========================================================
+    # 👑 CHAVE MESTRA (PROTEÇÃO CONTRA REINICIALIZAÇÃO DO RENDER)
+    # Se for o e-mail do Dono, aprova direto.
+    # =========================================================
+    if email == "gc49564@gmail.com":
+        return jsonify({
+            "valid": True, 
+            "message": "👑 Acesso Mestre (Dono)", 
+            "expiration": "2099-12-31 23:59:59"
+        }), 200
+    # =========================================================
+
     conn = sqlite3.connect(DB_NAME)
     c = conn.cursor()
     c.execute("SELECT status, data_validade FROM licencas WHERE email = ?", (email,))
