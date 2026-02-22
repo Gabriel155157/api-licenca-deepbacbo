@@ -6,5 +6,9 @@
   {
     "email": "teste@gmail.com",
     "dias": 1
+  },
+  {
+    "email": "test@gmail.com",
+    "dias": 1
   }
 ]
