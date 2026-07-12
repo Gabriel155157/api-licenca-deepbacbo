@@ -6,7 +6,7 @@ app = Flask(__name__)
 
 # --- CONFIGURAÇÃO ---
 # Defina aqui a senha que você usará para acessar o painel
-SENHA_ADMIN = "SUA_SENHA_AQUI"
+SENHA_ADMIN = "850790"
 DB_URL = os.environ.get("DATABASE_URL")
 
 def get_db_connection():
