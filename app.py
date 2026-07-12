@@ -1,49 +1,65 @@
 import os
 import psycopg2
-from flask import Flask, request, jsonify, render_template_string, redirect, url_for
+from flask import Flask, request, jsonify, render_template_string, Response
 
 app = Flask(__name__)
 
-# O Render lerá a variável DATABASE_URL configurada no painel
+# --- CONFIGURAÇÃO ---
+# Defina aqui a senha que você usará para acessar o painel
+SENHA_ADMIN = "SUA_SENHA_AQUI"
 DB_URL = os.environ.get("DATABASE_URL")
 
 def get_db_connection():
     return psycopg2.connect(DB_URL)
 
-# ── TEMPLATE HTML (Painel Visual) ──
+# --- AUTENTICAÇÃO ---
+def check_auth(password):
+    return password == SENHA_ADMIN
+
+def authenticate():
+    return Response('Acesso Negado. Insira a senha de administrador.', 401, 
+                    {'WWW-Authenticate': 'Basic realm="Login Requerido"'})
+
+# --- TEMPLATE ---
 HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <title>Gestor de Licenças - V8 Pro</title>
+    <title>Gestor V8 Pro</title>
     <style>
-        body { background-color: #0f172a; color: #e2e8f0; font-family: sans-serif; padding: 40px; display: flex; flex-direction: column; align-items: center; }
-        .container { background-color: #1e293b; padding: 30px; border-radius: 12px; width: 100%; max-width: 600px; }
-        h1 { color: #38bdf8; text-align: center; }
-        form { display: flex; gap: 10px; margin-bottom: 30px; }
-        input { flex: 1; padding: 12px; border-radius: 6px; border: 1px solid #334155; background: #0b1120; color: white; }
-        button { padding: 12px 20px; background: #38bdf8; color: #0f172a; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; }
+        body { background-color: #0f172a; color: #fff; font-family: sans-serif; padding: 40px; }
+        .container { background-color: #1e293b; padding: 20px; border-radius: 10px; max-width: 500px; margin: auto; }
+        input, button { padding: 10px; width: 100%; margin-top: 10px; }
+        button { background: #38bdf8; border: none; cursor: pointer; font-weight: bold; }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>🚀 DEEPBACBO V8 PRO</h1>
+        <h1>Painel V8 Pro</h1>
         <form action="/adicionar" method="POST">
             <input type="email" name="email" placeholder="E-mail do cliente" required>
-            <button type="submit">+ Criar Licença</button>
+            <button type="submit">Criar Licença</button>
         </form>
     </div>
 </body>
 </html>
 """
 
+# --- ROTAS ---
 @app.route('/', methods=['GET'])
 def index():
+    auth = request.authorization
+    if not auth or not check_auth(auth.password):
+        return authenticate()
     return render_template_string(HTML_TEMPLATE)
 
 @app.route('/adicionar', methods=['POST'])
 def adicionar():
+    auth = request.authorization
+    if not auth or not check_auth(auth.password):
+        return authenticate()
+        
     email = request.form.get('email', '').strip().lower()
     try:
         conn = get_db_connection()
@@ -54,7 +70,7 @@ def adicionar():
         conn.close()
         return "Licença gerada com sucesso!"
     except Exception as e:
-        return f"Erro: {e}"
+        return f"Erro ao adicionar: {e}"
 
 @app.route('/validar', methods=['GET'])
 def validar():
@@ -73,6 +89,5 @@ def validar():
         return jsonify({"autorizado": False}), 500
 
 if __name__ == '__main__':
-    # O Render injeta a porta correta na variável de ambiente PORT
     port = int(os.environ.get("PORT", 10000))
     app.run(host='0.0.0.0', port=port)
