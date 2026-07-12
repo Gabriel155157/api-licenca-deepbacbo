@@ -3,21 +3,31 @@ import sqlite3
 import os
 
 app = Flask(__name__)
-DB_NAME = 'licencas_v2.db'
 
-# ── INICIALIZA A BASE DE DADOS ──
+# Garante que o banco será criado exatamente na mesma pasta do arquivo app.py
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DB_NAME = os.path.join(BASE_DIR, 'licencas_v2.db')
+
+# ── INICIALIZA A BASE DE DADOS (COM SISTEMA ANTI-BLOQUEIO GUNICORN) ──
 def init_db():
-    conn = sqlite3.connect(DB_NAME)
-    c = conn.cursor()
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS clientes (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            email TEXT UNIQUE NOT NULL,
-            status INTEGER DEFAULT 1
-        )
-    ''')
-    conn.commit()
-    conn.close()
+    try:
+        # timeout=20 faz o processo aguardar se o banco estiver trancado por outro worker
+        conn = sqlite3.connect(DB_NAME, timeout=20)
+        c = conn.cursor()
+        c.execute('''
+            CREATE TABLE IF NOT EXISTS clientes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                email TEXT UNIQUE NOT NULL,
+                status INTEGER DEFAULT 1
+            )
+        ''')
+        conn.commit()
+    except Exception as e:
+        print(f"[V8 PRO] Aviso na inicialização do DB: {e}")
+    finally:
+        # Garante que a conexão será fechada mesmo se houver erro
+        if 'conn' in locals():
+            conn.close()
 
 init_db()
 
@@ -162,7 +172,7 @@ def index():
     msg = request.args.get('msg')
     erro = request.args.get('erro')
     
-    conn = sqlite3.connect(DB_NAME)
+    conn = sqlite3.connect(DB_NAME, timeout=20)
     c = conn.cursor()
     c.execute("SELECT email FROM clientes ORDER BY id DESC")
     clientes = c.fetchall()
@@ -178,7 +188,7 @@ def adicionar():
         return redirect(url_for('index', erro="E-mail inválido!"))
         
     try:
-        conn = sqlite3.connect(DB_NAME)
+        conn = sqlite3.connect(DB_NAME, timeout=20)
         c = conn.cursor()
         c.execute("INSERT INTO clientes (email, status) VALUES (?, 1)", (email,))
         conn.commit()
@@ -186,12 +196,14 @@ def adicionar():
         return redirect(url_for('index', msg=f"Licença gerada com sucesso para {email}"))
     except sqlite3.IntegrityError:
         return redirect(url_for('index', erro="Este e-mail já possui uma licença ativa!"))
+    except Exception as e:
+        return redirect(url_for('index', erro=f"Erro interno: {e}"))
 
 # ── ROTA PARA DELETAR/CORTAR O ACESSO DO CLIENTE ──
 @app.route('/deletar', methods=['POST'])
 def deletar():
     email = request.form.get('email')
-    conn = sqlite3.connect(DB_NAME)
+    conn = sqlite3.connect(DB_NAME, timeout=20)
     c = conn.cursor()
     c.execute("DELETE FROM clientes WHERE email=?", (email,))
     conn.commit()
@@ -206,18 +218,20 @@ def validar():
     if not email:
         return jsonify({"autorizado": False, "mensagem": "E-mail não fornecido"}), 400
         
-    conn = sqlite3.connect(DB_NAME)
-    c = conn.cursor()
-    c.execute("SELECT status FROM clientes WHERE email=?", (email,))
-    row = c.fetchone()
-    conn.close()
-    
-    if row and row[0] == 1:
-        return jsonify({"autorizado": True, "mensagem": "Licença Válida! Acesso Permitido."}), 200
-    else:
-        return jsonify({"autorizado": False, "mensagem": "Licença Inválida ou Expirada."}), 403
+    try:
+        conn = sqlite3.connect(DB_NAME, timeout=20)
+        c = conn.cursor()
+        c.execute("SELECT status FROM clientes WHERE email=?", (email,))
+        row = c.fetchone()
+        conn.close()
+        
+        if row and row[0] == 1:
+            return jsonify({"autorizado": True, "mensagem": "Licença Válida! Acesso Permitido."}), 200
+        else:
+            return jsonify({"autorizado": False, "mensagem": "Licença Inválida ou Expirada."}), 403
+    except Exception as e:
+        return jsonify({"autorizado": False, "mensagem": "Erro ao consultar a base de dados."}), 500
 
 if __name__ == '__main__':
-    # Usado apenas para testes locais. No Render, o Gunicorn assume o comando.
     port = int(os.environ.get("PORT", 10000))
     app.run(host='0.0.0.0', port=port)
