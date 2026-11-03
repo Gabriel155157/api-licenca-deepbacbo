@@ -19,6 +19,11 @@ def salvar_banco(dados):
     with open(ARQUIVO_BANCO, "w", encoding="utf-8") as f:
         json.dump(dados, f, indent=4, ensure_ascii=False)
 
+# Rota principal para o site não dar erro 404 ao abrir no navegador
+@app.route("/", methods=["GET"])
+def home():
+    return "<h1>🚀 Servidor de Licenças DeepBacBo.IA Ativo e Operando!</h1>"
+
 @app.route("/check_license", methods=["POST"])
 def check_license():
     dados_requisicao = request.get_json() or {}
