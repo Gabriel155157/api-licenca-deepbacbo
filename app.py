@@ -37,23 +37,29 @@ def check_license():
     banco = carregar_banco()
     agora = datetime.now()
 
-    # Se o e-mail não existe no servidor, nega o acesso (Removido o teste grátis automático por segurança, 
-    # assim você controla exatamente quem entra, ou se preferir o teste de 1 dia, ativamos via painel)
     if email not in banco:
         return jsonify({
             "valid": False, 
             "message": "E-mail não cadastrado ou licença revogada pelo administrador."
         })
 
-    # Valida a data de expiração
     info_cliente = banco[email]
     data_expiracao = datetime.strptime(info_cliente["expira_em"], "%Y-%m-%d %H:%M:%S")
 
     if agora <= data_expiracao:
+        # Calcula os dias restantes para o vencimento
+        dias_restantes = (data_expiracao - agora).days
+        aviso_msg = ""
+        
+        # Se faltar 3 dias ou menos para expirar, envia o aviso de renovação
+        if dias_restantes <= 3:
+            aviso_msg = f"⚠️ ATENÇÃO: Seu plano vence em {dias_restantes} dia(s) ({info_cliente['expira_em']}). Renove agora para não perder o acesso!"
+
         return jsonify({
             "valid": True,
             "message": "Licença ativa.",
-            "expira_em": info_cliente["expira_em"]
+            "expira_em": info_cliente["expira_em"], # Enviando a data exata para o robô calcular o tempo restante
+            "aviso": aviso_msg
         })
     else:
         return jsonify({
@@ -133,14 +139,12 @@ def admin():
             {% endif %}
 
             {% if not autenticado %}
-            <!-- Tela de Login do Admin -->
             <form method="POST">
                 <label><b>Digite a Senha de Administrador:</b></label>
                 <input type="password" name="senha" placeholder="Senha secreta" required>
                 <button type="submit">Entrar no Painel</button>
             </form>
             {% else %}
-            <!-- Painel Gerenciador (Só aparece logado) -->
             <form method="POST">
                 <input type="hidden" name="senha" value="{{ request.form.get('senha') }}">
 
